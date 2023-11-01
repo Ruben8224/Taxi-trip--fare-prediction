@@ -6,6 +6,8 @@ import pathlib
 
 # Load the dataset
 df = pd.read_csv(pathlib.Path('data/train.csv'))
+df = pd.read_csv(pathlib.Path('data/train_5001.csv'))
+df = pd.read_csv(pathlib.Path('data/train_15000.csv'))
 
 try:
     # Define 'y' as the target variable (fare)
