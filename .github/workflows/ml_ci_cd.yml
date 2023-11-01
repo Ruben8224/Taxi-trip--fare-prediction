@@ -1,4 +1,4 @@
-name: ML heart-model
+name: Modelops deploy
 on:
   push:
     branches: [ master ]
@@ -11,49 +11,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: show python version
+    - name: python version
       run: python --version
-    - name: show dir
-      run: ls -la
     - name: pip install
       run: pip install -r requirements.txt
+    - name: imprimir url
+      run: "${{github.event.client_payload.dataseturl}}"
     - name: download dataset
-      run: wget -O data/train.csv ${{github.event.client_payload.dataseturl}}
+      run: wget -O data/train.csv "${{github.event.client_payload.dataseturl}}"
     - name: cat dataset
-      run: cat data/train.csv
+      run: head data/train.csv
     - name: train model
       run: python model/train.py
     - name: docker build
-      run: docker build -t ${{secrets.DOCKER_USER}}/${{secrets.MODEL_NAME}}:${{github.event.client_payload.sha}} .
-    - name: show images
-      run: docker images
+      run: docker build -t ${{secrets.DOCKER_USER}}/${{secrets.MODEL_NAME}}:${{github.event.client_payload.sha}} .    
     - name: docker login
       env:
         DOCKER_USER: ${{secrets.DOCKER_USER}}
         DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
       run: |
         docker login -u $DOCKER_USER -p $DOCKER_PASSWORD 
-    - name: docker Push to hub.docker.com
-      run: docker push ${{secrets.DOCKER_USER}}/${{secrets.MODEL_NAME}}:${{ github.event.client_payload.sha }}
+    - name: docker Push
+      run: docker push ${{secrets.DOCKER_USER}}/${{secrets.MODEL_NAME}}:${{github.event.client_payload.sha }}    
     - name: update docker user in k8 
-      run: sed -i 's/{docker_user}/${{secrets.DOCKER_USER}}/g' manifest/k8s.yml
+      run: sed -i 's/{docker_user}/${{secrets.DOCKER_USER}}/g' manifest/k8s.yaml
     - name: update model name in k8 
-      run: sed -i 's/{model_name}/${{secrets.MODEL_NAME}}/g' manifest/k8s.yml
+      run: sed -i 's/{model_name}/${{secrets.MODEL_NAME}}/g' manifest/k8s.yaml
     - name: update _ by - 
-      run: sed -i 's/_/-/g' manifest/k8s.yml
+      run: sed -i 's/_/-/g' manifest/k8s.yaml
     - name: update sha in k8
-      run: sed -i 's/{github.sha}/${{ github.event.client_payload.sha }}/g' manifest/k8s.yml
-    - name: show k8s.yml 
-      run: cat manifest/k8s.yml
+      run: sed -i 's/{github.sha}/${{github.event.client_payload.sha }}/g' manifest/k8s.yaml
+    - name: show k8s.yaml 
+      run: cat manifest/k8s.yaml
     - uses: okteto/context@2.7.0
       with:
         token: ${{secrets.OKTETO_TOKEN }}
-
     - name: Deploy and Wait
       uses: okteto/actions/deploy@v1
       env:
         KUBECONFIG: ${{ steps.namespace.outputs.kubeconfig }}
       with:
         namespace: ${{secrets.OKTETO_NAMESPACE }}
-        manifest: manifest/k8s.yml
-        tag: ${{ secrets.DOCKER_USERNAME }}/${{secrets.MODEL_NAME}}:${{ github.event.client_payload.sha }}
+        manifest: manifest/k8s.yaml
+        tag: ${{ secrets.DOCKER_USERNAME }}/${{secrets.MODEL_NAME}}:${{ github.sha }}
